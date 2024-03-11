@@ -1,3 +1,32 @@
+/** Estimate */
+export enum Estimate {
+  NoEstimate = 0,
+  Empty = 1, // For Epics
+  XS = 2,
+  S = 3,
+  M = 4,
+  L = 5,
+  XL = 6,
+}
+
+// Projects
+export enum Project {
+  KOMBI = "f5758aef-d1bc-4833-b225-ea071ab25834",
+  MODDEX = "756b0ced-9e63-4da4-8b4e-9cc0cbe00c96",
+  LEVELED_PLATFORMS = "694b8053-be7f-466a-aee0-a902b219ab9f",
+}
+
+export enum Status {
+  BACKLOG = "Backlog",
+  TODO = "Todo",
+  IN_PROGRESS = "In Progress",
+  IN_REVIEW = "In Review",
+  DONE = "Done",
+  CUSTOMER_REVIEW = "Customer Review",
+  CANCELED = "Canceled",
+  DUPLICATE = "Duplicate",
+}
+
 /** Issue. */
 export interface Issue {
   /** Issue title */
@@ -25,6 +54,10 @@ export interface Issue {
   /** When the issue was started. */
   startedAt?: Date;
   originalId?: string;
+  /** Estimate of the card effort. */
+  estimate?: Estimate;
+  /** Project ID of the card. */
+  projectId?: Project;
 }
 
 /** Issue comment */

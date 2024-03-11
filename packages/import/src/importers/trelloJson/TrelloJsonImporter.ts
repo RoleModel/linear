@@ -1,7 +1,38 @@
 import fs from "fs";
-import { Comment, Importer, ImportResult } from "../../types";
+import { Comment, Importer, ImportResult, Estimate, Project, Status } from "../../types";
 
 type TrelloLabelColor = "green" | "yellow" | "orange" | "red" | "purple" | "blue" | "sky" | "lime" | "pink" | "black";
+type TrelloModelType = "card" | "board";
+
+interface TrelloCustomFieldItem {
+  id: string;
+  value: null;
+  idValue: string;
+  idCustomField: string;
+  idModel: string;
+  modelType: TrelloModelType;
+}
+
+interface TrelloCustomFieldOption {
+  id: string;
+  idCustomField: string;
+  value: { text: string };
+  color: TrelloLabelColor;
+  pos: number;
+}
+
+interface TrelloCustomField {
+  id: string;
+  idModel: string;
+  modelType: TrelloModelType;
+  fieldGroup: string;
+  display: { cardFront: boolean };
+  name: string;
+  pos: number;
+  options: TrelloCustomFieldOption[];
+  type: "list" | "text" | "number" | "date";
+  isSuggestedField: boolean;
+}
 
 interface TrelloCard {
   name: string;
@@ -21,11 +52,7 @@ interface TrelloCard {
   }[];
   id: string;
   idList: string;
-}
-
-interface TrelloList {
-  id: string;
-  closed: boolean;
+  customFieldItems: TrelloCustomFieldItem[];
 }
 
 interface TrelloChecklist {
@@ -49,6 +76,82 @@ interface TrelloCommentAction {
   data: TrelloComment;
   date: string;
 }
+
+interface TrelloList {
+  name: string;
+  id: string;
+  closed: boolean;
+  color: null;
+  idBoard: string;
+  pos: number;
+  subscribed: boolean;
+  softLimit: null;
+  creationMethod: null;
+  idOrganization: string;
+  limits: {
+    cards: {
+      openPerList: {
+        status: string;
+        disableAt: number;
+        warnAt: number;
+      };
+      totalPerList: {
+        status: string;
+        disableAt: number;
+        warnAt: number;
+      };
+    };
+  };
+  nodeId: string;
+}
+
+const ESTIMATE_MAP = {
+  "X-Small (< 2hrs)": Estimate.XS,
+  "Small (< day)": Estimate.S,
+  "Medium (~day)": Estimate.M,
+  "Large (~2 days)": Estimate.L,
+  "X-Large (~1 wk)": Estimate.XL,
+  "Too large! (> 1 wk)": Estimate.Empty,
+};
+
+const PROJECT_MAP = {
+  Kombi: Project.KOMBI,
+  "Moddex Ezibilt": Project.MODDEX,
+  "Leveled Platforms": Project.LEVELED_PLATFORMS,
+};
+
+const STATUS_MAP = {
+  // Backlog
+  Icebox: Status.BACKLOG,
+  Reference: Status.BACKLOG,
+  "Product Backlog": Status.BACKLOG,
+  "Release Backlog": Status.BACKLOG,
+  "Leveled Platform Backlog": Status.BACKLOG,
+  // Todo
+  "Awaiting Feedback": Status.TODO,
+  Moddex: Status.TODO,
+  "Bugs, Issues, Discussion": Status.TODO,
+  "Moddex Platforms Phase 2": Status.TODO,
+  "Leveled Platforms Workshop Drawing": Status.TODO,
+  "This Iteration": Status.TODO,
+  // In Progress
+  "In Progress": Status.IN_PROGRESS,
+  // Review
+  "Code Review": Status.IN_REVIEW,
+  // Customer Review
+  "Deploy to Staging": Status.CUSTOMER_REVIEW,
+  "Customer Review/Approve": Status.CUSTOMER_REVIEW,
+  "Deploy to Production": Status.CUSTOMER_REVIEW,
+  // Done
+  "Iteration Meeting": Status.DONE,
+  "Q1 2024": Status.DONE,
+  "Q4 2023": Status.DONE,
+  "Q3 2023": Status.DONE,
+  "Q2 2023": Status.DONE,
+  "Q1 2023": Status.DONE,
+  "Q4 2022": Status.DONE,
+  "Done Not Deployable": Status.DONE,
+};
 
 export class TrelloJsonImporter implements Importer {
   public constructor(filePath: string, discardArchivedCards: boolean, discardArchivedLists: boolean) {
@@ -74,30 +177,46 @@ export class TrelloJsonImporter implements Importer {
       labels: {},
       users: {},
       statuses: {},
-      subIssues: {}
+      subIssues: {},
     };
 
     // Map card id => checklist so we can add them to the issues in the next step
     const checkLists: { [key: string]: TrelloChecklist } = {};
     const trelloCheckLists: { [key: string]: string[] } = {};
 
-    const urlsToIds: { [key: string]: string } = {}
+    const urlsToIds: { [key: string]: string } = {};
     data.cards.forEach((card: TrelloCard) => {
-      urlsToIds[card.url] = card.id
-      urlsToIds[card.shortUrl] = card.id
-    })
+      urlsToIds[card.url] = card.id;
+      urlsToIds[card.shortUrl] = card.id;
+    });
+
+    const customFields = {};
+    data.customFields.forEach((field: TrelloCustomField) => {
+      customFields[field.id] = {
+        name: field.name,
+        type: field.type,
+      };
+      field.options?.forEach(option => {
+        customFields[field.id][option.id] = option.value.text;
+      });
+    });
+
+    const lists = {};
+    data.lists.forEach((list: TrelloList) => {
+      lists[list.id] = list.name;
+    });
 
     for (const checklist of data.checklists as TrelloChecklist[]) {
       checkLists[checklist.idCard] = checklist;
-      checklist.checkItems.forEach((item) => {
+      checklist.checkItems.forEach(item => {
         if (item.name.includes("trello.com")) {
-          trelloCheckLists[checklist.idCard] ||= []
-          const cardId: string = urlsToIds[item.name]
+          trelloCheckLists[checklist.idCard] ||= [];
+          const cardId: string = urlsToIds[item.name];
           if (cardId) {
-            trelloCheckLists[checklist.idCard].push(cardId)
+            trelloCheckLists[checklist.idCard].push(cardId);
           }
         }
-      })
+      });
     }
 
     // Map card id => comments so we can add them to the issues in the next step
@@ -129,19 +248,48 @@ export class TrelloJsonImporter implements Importer {
     for (const card of data.cards as TrelloCard[]) {
       const url = card.shortUrl;
       const mdDesc = card.desc;
+
+      // CHECKLIST
       const checklist = checkLists[card.id];
       let formattedChecklist = "";
       if (checklist) {
         formattedChecklist = checklist.checkItems
-          .filter((item) => !urlsToIds[item.name])
+          .filter(item => !urlsToIds[item.name])
           .sort((item1, item2) => item1.pos - item2.pos)
           .map(item => `- [${item.state === "complete" ? "x" : " "}] ${item.name}`)
           .join("\n");
       }
+
+      // ATTACHMENTS
       const formattedAttachments = card.attachments
         .map(attachment => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
+      // ESTIMATE
+      let estimate = Estimate.NoEstimate;
+      let projectId = Project.KOMBI;
+      card.customFieldItems.forEach(field => {
+        const customField = customFields[field.idCustomField];
+        const name = customField.name;
+        if (name === "Estimate") {
+          const value = customField[field.idValue];
+          estimate = ESTIMATE_MAP[value];
+          return;
+        }
+
+        if (name === "App") {
+          const value = customField[field.idValue];
+          projectId = PROJECT_MAP[value];
+          return;
+        }
+      });
+
+      const status = STATUS_MAP[lists[card.idList]];
+
+      // https://linear.app/rolemodelsoftware/project/kombi-e0eb1c52c4bc
+      // https://linear.app/rolemodelsoftware/issue/SAY-107/eb-balustrade-offset-handrail
+
+      // DESCRIPTION
       const description = `${mdDesc}${formattedChecklist && `\n${formattedChecklist}`}${
         formattedAttachments && `\n\nAttachments:\n${formattedAttachments}`
       }\n\n[View original card in Trello](${url})`;
@@ -164,7 +312,10 @@ export class TrelloJsonImporter implements Importer {
         url,
         labels,
         comments: comments[card.id],
-        originalId: card.id
+        originalId: card.id,
+        estimate,
+        projectId,
+        status,
       });
 
       const allLabels = card.labels.map(label => ({
@@ -179,7 +330,7 @@ export class TrelloJsonImporter implements Importer {
         importData.labels[id] = labelData;
       }
     }
-    importData.subIssues = trelloCheckLists
+    importData.subIssues = trelloCheckLists;
 
     return importData;
   };
