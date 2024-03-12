@@ -53,6 +53,7 @@ interface TrelloCard {
   id: string;
   idList: string;
   customFieldItems: TrelloCustomFieldItem[];
+  idMembers: string[];
 }
 
 interface TrelloChecklist {
@@ -63,6 +64,12 @@ interface TrelloChecklist {
     state: "incomplete" | "complete";
     pos: number;
   }[];
+}
+
+interface TrelloMember {
+  id: string;
+  fullName: string;
+  username: string;
 }
 
 interface TrelloComment {
@@ -105,6 +112,42 @@ interface TrelloList {
   nodeId: string;
 }
 
+interface TrelloAction {
+  id: string;
+  type: string;
+  date: string;
+  cardId: string;
+  data: {
+    list: {
+      pos: number;
+      id: string;
+      name: string;
+    };
+    old: {
+      pos: number;
+    };
+    board: {
+      id: string;
+      name: string;
+      shortLink: string;
+    };
+    card: {
+      idList: string;
+      id: string;
+      name: string;
+      shortLink: string;
+    };
+    listBefore: {
+      id: string;
+      name: string;
+    };
+    listAfter: {
+      id: string;
+      name: string;
+    };
+  };
+}
+
 const ESTIMATE_MAP = {
   "X-Small (< 2hrs)": Estimate.XS,
   "Small (< day)": Estimate.S,
@@ -115,10 +158,29 @@ const ESTIMATE_MAP = {
 };
 
 const PROJECT_MAP = {
-  Kombi: Project.KOMBI,
-  "Moddex Ezibilt": Project.MODDEX,
-  "Leveled Platforms": Project.LEVELED_PLATFORMS,
+  "Phase 1": {
+    Kombi: Project.KOMBI,
+    "Moddex Ezibilt": Project.MODDEX_PHASE_1,
+    "Leveled Platforms": Project.LEVELED_PLATFORMS,
+  },
+  "Phase 2": {
+    Kombi: Project.KOMBI,
+    "Moddex Ezibilt": Project.MODDEX_PHASE_2,
+    "Leveled Platforms": Project.LEVELED_PLATFORMS_WORKSHOP,
+  },
 };
+
+// // TODO: need to handle mapping to workshop and phase 2 based on date.
+// const PROJECT_MAP = {
+//   Kombi: Project.KOMBI,
+//   "Moddex Ezibilt": Project.MODDEX_PHASE_1,
+//   "Leveled Platforms": Project.LEVELED_PLATFORMS,
+// };
+
+// const PHASE_2_PROJECT_MAP = {
+//   "Moddex Ezibilt": Project.MODDEX_PHASE_2,
+//   "Leveled Platforms": Project.LEVELED_PLATFORMS_WORKSHOP,
+// };
 
 const STATUS_MAP = {
   // Backlog
@@ -151,6 +213,44 @@ const STATUS_MAP = {
   "Q1 2023": Status.DONE,
   "Q4 2022": Status.DONE,
   "Done Not Deployable": Status.DONE,
+};
+
+// const MILESTONE_MAP = {
+//   // "Q1 2024": Status.DONE,
+//   // "Q4 2023": Status.DONE,
+//   // "Q3 2023": Status.DONE,
+//   // "Q2 2023": Status.DONE,
+//   // "Q1 2023": Status.DONE,
+//   // "Q4 2022": Status.DONE,
+// }
+
+const MILESTONE_MAP = {
+  Kombi: {
+    "Q4 2022": "67635d43-4499-4db8-86b7-9e30aaeb8db4",
+    "Q1 2023": "514a664c-a2b7-48ed-996d-95effb839913",
+    "Q2 2023": "b37af847-53c5-46e0-ac73-8f9ea5dde3b7",
+    "Q3 2023": "cf1233d2-2193-4369-9f2a-db29d22e28fd",
+    "Q4 2023": "5e0313c0-18d1-4e37-a8e6-daa57377f1dc",
+    "Q1 2024": "e633eb0b-48d1-4b0e-9d23-e44128edb4ca",
+  },
+  // 'Roofs': {
+  //   'Q4 2022': '67635d43-4499-4db8-86b7-9e30aaeb8db4',
+  //   'Q1 2023': '514a664c-a2b7-48ed-996d-95effb839913',
+  //   'Q2 2023': 'b37af847-53c5-46e0-ac73-8f9ea5dde3b7',
+  //   'Q3 2023': 'cf1233d2-2193-4369-9f2a-db29d22e28fd',
+  //   'Q4 2023': '5e0313c0-18d1-4e37-a8e6-daa57377f1dc',
+  //   'Q1 2024': 'e633eb0b-48d1-4b0e-9d23-e44128edb4ca',
+  // },
+  // 'Portal': {
+  //   'Q4 2022': '67635d43-4499-4db8-86b7-9e30aaeb8db4',
+  //   'Q1 2023': '514a664c-a2b7-48ed-996d-95effb839913',
+  //   'Q2 2023': 'b37af847-53c5-46e0-ac73-8f9ea5dde3b7',
+  //   'Q3 2023': 'cf1233d2-2193-4369-9f2a-db29d22e28fd',
+  //   'Q4 2023': '5e0313c0-18d1-4e37-a8e6-daa57377f1dc',
+  //   'Q1 2024': 'e633eb0b-48d1-4b0e-9d23-e44128edb4ca',
+  // },
+  "Moddex Ezibilt": {},
+  "Leveled Platforms": {},
 };
 
 export class TrelloJsonImporter implements Importer {
@@ -265,26 +365,14 @@ export class TrelloJsonImporter implements Importer {
         .map(attachment => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
-      // ESTIMATE
-      let estimate = Estimate.NoEstimate;
-      let projectId = Project.KOMBI;
-      card.customFieldItems.forEach(field => {
-        const customField = customFields[field.idCustomField];
-        const name = customField.name;
-        if (name === "Estimate") {
-          const value = customField[field.idValue];
-          estimate = ESTIMATE_MAP[value];
-          return;
-        }
+      const members = card.idMembers.map(memberId =>
+        data.members.find((member: TrelloMember) => member.id === memberId)
+      );
+      const formattedMembers = members.map(member => `${member.fullName} (${member.username})`).join("\n");
 
-        if (name === "App") {
-          const value = customField[field.idValue];
-          projectId = PROJECT_MAP[value];
-          return;
-        }
-      });
-
-      const status = STATUS_MAP[lists[card.idList]];
+      // STATUS
+      const listName = lists[card.idList];
+      const status = STATUS_MAP[listName];
 
       // https://linear.app/rolemodelsoftware/project/kombi-e0eb1c52c4bc
       // https://linear.app/rolemodelsoftware/issue/SAY-107/eb-balustrade-offset-handrail
@@ -292,9 +380,50 @@ export class TrelloJsonImporter implements Importer {
       // DESCRIPTION
       const description = `${mdDesc}${formattedChecklist && `\n${formattedChecklist}`}${
         formattedAttachments && `\n\nAttachments:\n${formattedAttachments}`
-      }\n\n[View original card in Trello](${url})`;
+      }${formattedMembers && `\n\nMembers:\n${formattedMembers}`}\n\n[View original card in Trello](${url})`;
       const labels = card.labels.map(l => l.id);
 
+      // card date
+      const phase2Start = new Date("2024-02-16").getTime();
+      const relevantActions = data.actions.filter(
+        (action: TrelloAction) =>
+          action.type === "updateCard" &&
+          action.data.listAfter && // card update moving lists
+          action.data.card.id === card.id &&
+          action.data.listAfter.name === "In Progress"
+      );
+      const relevantDate = relevantActions
+        .map((action: TrelloAction) => new Date(action.date).getTime())
+        .sort((a: number, b: number) => b - a)[0];
+
+      const isInPhase2 = !relevantDate || phase2Start <= relevantDate;
+      const phase = isInPhase2 ? "Phase 2" : "Phase 1";
+
+      // CUSTOM FIELDS
+      let estimate = Estimate.NoEstimate;
+      let projectId = Project.KOMBI;
+      let projectMilestoneId = Project.KOMBI;
+      card.customFieldItems.forEach(field => {
+        const customField = customFields[field.idCustomField];
+        const name = customField.name;
+
+        // ESTIMATE
+        if (name === "Estimate") {
+          const value = customField[field.idValue];
+          estimate = ESTIMATE_MAP[value];
+          return;
+        }
+
+        // APP
+        if (name === "App") {
+          const app = customField[field.idValue];
+          projectId = PROJECT_MAP[phase][app];
+          projectMilestoneId = MILESTONE_MAP[app][listName];
+          return;
+        }
+      });
+
+      // DISCARD ARCHIVED
       if (this.discardArchivedCards && card.closed) {
         continue;
       }
@@ -306,6 +435,7 @@ export class TrelloJsonImporter implements Importer {
         continue;
       }
 
+      // Create issue
       importData.issues.push({
         title: card.name,
         description,
@@ -316,6 +446,7 @@ export class TrelloJsonImporter implements Importer {
         estimate,
         projectId,
         status,
+        projectMilestoneId,
       });
 
       const allLabels = card.labels.map(label => ({
