@@ -13,6 +13,13 @@ interface TrelloCustomFieldItem {
   modelType: TrelloModelType;
 }
 
+interface TrelloLabel {
+  id: string;
+  idBoard: string;
+  name: string;
+  color: TrelloLabelColor;
+}
+
 interface TrelloCustomFieldOption {
   id: string;
   idCustomField: string;
@@ -38,27 +45,27 @@ interface TrelloCard {
   name: string;
   desc: string;
   url: string;
-  shortUrl: string;
+  // shortUrl: string;
   closed: boolean;
-  labels: {
-    id: string;
-    idBoard: string;
-    name: string;
-    color: TrelloLabelColor;
-  }[];
   attachments: {
+    id: string;
     name: string;
     url: string;
+    mimeType: string;
+    bytes: number;
   }[];
   id: string;
   idList: string;
   customFieldItems: TrelloCustomFieldItem[];
   idMembers: string[];
+  checklists: TrelloChecklist[];
+  idLabels: string[];
 }
 
 interface TrelloChecklist {
   id: string;
   idCard: string;
+  name: string;
   checkItems: {
     name: string;
     state: "incomplete" | "complete";
@@ -159,28 +166,20 @@ const ESTIMATE_MAP = {
 
 const PROJECT_MAP = {
   "Phase 1": {
+    Portal: Project.PORTAL,
     Kombi: Project.KOMBI,
+    Roofs: Project.ROOFS,
     "Moddex Ezibilt": Project.MODDEX_PHASE_1,
     "Leveled Platforms": Project.LEVELED_PLATFORMS,
   },
   "Phase 2": {
+    Portal: Project.PORTAL,
     Kombi: Project.KOMBI,
+    Roofs: Project.ROOFS,
     "Moddex Ezibilt": Project.MODDEX_PHASE_2,
     "Leveled Platforms": Project.LEVELED_PLATFORMS_WORKSHOP,
   },
 };
-
-// // TODO: need to handle mapping to workshop and phase 2 based on date.
-// const PROJECT_MAP = {
-//   Kombi: Project.KOMBI,
-//   "Moddex Ezibilt": Project.MODDEX_PHASE_1,
-//   "Leveled Platforms": Project.LEVELED_PLATFORMS,
-// };
-
-// const PHASE_2_PROJECT_MAP = {
-//   "Moddex Ezibilt": Project.MODDEX_PHASE_2,
-//   "Leveled Platforms": Project.LEVELED_PLATFORMS_WORKSHOP,
-// };
 
 const STATUS_MAP = {
   // Backlog
@@ -215,42 +214,81 @@ const STATUS_MAP = {
   "Done Not Deployable": Status.DONE,
 };
 
-// const MILESTONE_MAP = {
-//   // "Q1 2024": Status.DONE,
-//   // "Q4 2023": Status.DONE,
-//   // "Q3 2023": Status.DONE,
-//   // "Q2 2023": Status.DONE,
-//   // "Q1 2023": Status.DONE,
-//   // "Q4 2022": Status.DONE,
-// }
+// Test Team (KOMBI)
+// "Q4 2022": "67635d43-4499-4db8-86b7-9e30aaeb8db4",
+// "Q1 2023": "514a664c-a2b7-48ed-996d-95effb839913",
+// "Q2 2023": "b37af847-53c5-46e0-ac73-8f9ea5dde3b7",
+// "Q3 2023": "cf1233d2-2193-4369-9f2a-db29d22e28fd",
+// "Q4 2023": "5e0313c0-18d1-4e37-a8e6-daa57377f1dc",
+// "Q1 2024": "e633eb0b-48d1-4b0e-9d23-e44128edb4ca",
 
 const MILESTONE_MAP = {
-  Kombi: {
-    "Q4 2022": "67635d43-4499-4db8-86b7-9e30aaeb8db4",
-    "Q1 2023": "514a664c-a2b7-48ed-996d-95effb839913",
-    "Q2 2023": "b37af847-53c5-46e0-ac73-8f9ea5dde3b7",
-    "Q3 2023": "cf1233d2-2193-4369-9f2a-db29d22e28fd",
-    "Q4 2023": "5e0313c0-18d1-4e37-a8e6-daa57377f1dc",
-    "Q1 2024": "e633eb0b-48d1-4b0e-9d23-e44128edb4ca",
+  "Phase 1": {
+    Kombi: {
+      "Q1 2024": "11d65c63-fa1e-4aa9-a67f-de6d77b0908c",
+      "Q4 2023": "6f8a3f64-aaa1-4dfa-ac0a-5047f1d7f4a4",
+      "Q3 2023": "5cdb0181-9a37-483e-bfed-7164b9741457",
+      "Q2 2023": "0ee6c850-d3bb-4ad1-a030-acdf21f5129e",
+      "Q1 2023": "9a966262-3089-4343-b3e2-61827d92f83e",
+      "Q4 2022": "9ee4093d-29b1-4458-97ef-28269a6580cb",
+    },
+    Roofs: {
+      "Q1 2024": "acbf0421-657d-4419-9942-a42b89a314f0",
+      "Q4 2023": "769e22fe-b613-403c-bacb-bd433d8ed0ca",
+      "Q3 2023": "018b72ca-69eb-4277-b9f0-a85e975e0ef7",
+      "Q2 2023": "3eb78b46-223e-4f7a-a412-f8b1a708008a",
+      "Q1 2023": "52db53f7-de1f-45ef-b525-e1ff35d5f010",
+      "Q4 2022": "0e12eb1e-f29f-467f-b042-ac321468bb7d",
+    },
+    Portal: {
+      "Q1 2024": "26b1c93e-bc39-4516-ba6d-ac9b04c08aa6",
+      "Q4 2023": "ef01eb82-f68a-4de8-b2ae-b8de78cab6c1",
+      "Q3 2023": "85417aac-2cbc-4915-8693-c3fe1d518543",
+      "Q2 2023": "507ae292-9c2c-4390-940d-1483de232771",
+      "Q1 2023": "50fd1168-7d27-4966-ae57-2ece224a747e",
+      "Q4 2022": "71eb6d1c-cb32-423c-ae1f-799c33736b21",
+    },
+    "Moddex Ezibilt": {
+      "Q1 2024": "192e5859-db76-4856-8c06-ef48ab7c3940",
+      "Q4 2023": "e4e51396-2540-46b8-908c-1d6fbec6dc22",
+    },
+    "Leveled Platforms": {
+      "Q1 2024": "01d61acd-1249-4d1c-bf96-2da177ee4a96",
+      "Q4 2023": "3d5771c0-3ba4-4c41-a947-c387083f5197",
+    },
   },
-  // 'Roofs': {
-  //   'Q4 2022': '67635d43-4499-4db8-86b7-9e30aaeb8db4',
-  //   'Q1 2023': '514a664c-a2b7-48ed-996d-95effb839913',
-  //   'Q2 2023': 'b37af847-53c5-46e0-ac73-8f9ea5dde3b7',
-  //   'Q3 2023': 'cf1233d2-2193-4369-9f2a-db29d22e28fd',
-  //   'Q4 2023': '5e0313c0-18d1-4e37-a8e6-daa57377f1dc',
-  //   'Q1 2024': 'e633eb0b-48d1-4b0e-9d23-e44128edb4ca',
-  // },
-  // 'Portal': {
-  //   'Q4 2022': '67635d43-4499-4db8-86b7-9e30aaeb8db4',
-  //   'Q1 2023': '514a664c-a2b7-48ed-996d-95effb839913',
-  //   'Q2 2023': 'b37af847-53c5-46e0-ac73-8f9ea5dde3b7',
-  //   'Q3 2023': 'cf1233d2-2193-4369-9f2a-db29d22e28fd',
-  //   'Q4 2023': '5e0313c0-18d1-4e37-a8e6-daa57377f1dc',
-  //   'Q1 2024': 'e633eb0b-48d1-4b0e-9d23-e44128edb4ca',
-  // },
-  "Moddex Ezibilt": {},
-  "Leveled Platforms": {},
+  "Phase 2": {
+    Kombi: {
+      "Q1 2024": "11d65c63-fa1e-4aa9-a67f-de6d77b0908c",
+      "Q4 2023": "6f8a3f64-aaa1-4dfa-ac0a-5047f1d7f4a4",
+      "Q3 2023": "5cdb0181-9a37-483e-bfed-7164b9741457",
+      "Q2 2023": "0ee6c850-d3bb-4ad1-a030-acdf21f5129e",
+      "Q1 2023": "9a966262-3089-4343-b3e2-61827d92f83e",
+      "Q4 2022": "9ee4093d-29b1-4458-97ef-28269a6580cb",
+    },
+    Roofs: {
+      "Q1 2024": "acbf0421-657d-4419-9942-a42b89a314f0",
+      "Q4 2023": "769e22fe-b613-403c-bacb-bd433d8ed0ca",
+      "Q3 2023": "018b72ca-69eb-4277-b9f0-a85e975e0ef7",
+      "Q2 2023": "3eb78b46-223e-4f7a-a412-f8b1a708008a",
+      "Q1 2023": "52db53f7-de1f-45ef-b525-e1ff35d5f010",
+      "Q4 2022": "0e12eb1e-f29f-467f-b042-ac321468bb7d",
+    },
+    Portal: {
+      "Q1 2024": "26b1c93e-bc39-4516-ba6d-ac9b04c08aa6",
+      "Q4 2023": "ef01eb82-f68a-4de8-b2ae-b8de78cab6c1",
+      "Q3 2023": "85417aac-2cbc-4915-8693-c3fe1d518543",
+      "Q2 2023": "507ae292-9c2c-4390-940d-1483de232771",
+      "Q1 2023": "50fd1168-7d27-4966-ae57-2ece224a747e",
+      "Q4 2022": "71eb6d1c-cb32-423c-ae1f-799c33736b21",
+    },
+    "Moddex Ezibilt": {
+      "Q1 2024": "8a6a930c-215d-4288-91ae-d25f8a24fbe9",
+    },
+    "Leveled Platforms": {
+      "Q1 2024": "3dc4935f-69b8-489f-99cb-6eb8f7c9e757",
+    },
+  },
 };
 
 export class TrelloJsonImporter implements Importer {
@@ -281,13 +319,13 @@ export class TrelloJsonImporter implements Importer {
     };
 
     // Map card id => checklist so we can add them to the issues in the next step
-    const checkLists: { [key: string]: TrelloChecklist } = {};
-    const trelloCheckLists: { [key: string]: string[] } = {};
+    // const checkLists: { [key: string]: TrelloChecklist[] } = {};
+    // const trelloCheckLists: { [key: string]: string[] } = {};
 
     const urlsToIds: { [key: string]: string } = {};
     data.cards.forEach((card: TrelloCard) => {
       urlsToIds[card.url] = card.id;
-      urlsToIds[card.shortUrl] = card.id;
+      urlsToIds[card.url.split("/").slice(0, -1).join("/")] = card.id;
     });
 
     const customFields = {};
@@ -306,18 +344,19 @@ export class TrelloJsonImporter implements Importer {
       lists[list.id] = list.name;
     });
 
-    for (const checklist of data.checklists as TrelloChecklist[]) {
-      checkLists[checklist.idCard] = checklist;
-      checklist.checkItems.forEach(item => {
-        if (item.name.includes("trello.com")) {
-          trelloCheckLists[checklist.idCard] ||= [];
-          const cardId: string = urlsToIds[item.name];
-          if (cardId) {
-            trelloCheckLists[checklist.idCard].push(cardId);
-          }
-        }
-      });
-    }
+    // for (const checklist of data.checklists as TrelloChecklist[]) {
+    //   checkLists[checklist.idCard] ??= []
+    //   checkLists[checklist.idCard].push(checklist);
+    //   checklist.checkItems.forEach(item => {
+    //     if (item.name.includes("trello.com")) {
+    //       trelloCheckLists[checklist.idCard] ||= [];
+    //       const cardId: string = urlsToIds[item.name];
+    //       if (cardId) {
+    //         trelloCheckLists[checklist.idCard].push(cardId);
+    //       }
+    //     }
+    //   });
+    // }
 
     // Map card id => comments so we can add them to the issues in the next step
     const comments: { [key: string]: Comment[] } = {};
@@ -346,19 +385,23 @@ export class TrelloJsonImporter implements Importer {
     }
 
     for (const card of data.cards as TrelloCard[]) {
-      const url = card.shortUrl;
+      const url = card.url.split("/").slice(0, -1).join("/");
       const mdDesc = card.desc;
 
       // CHECKLIST
-      const checklist = checkLists[card.id];
-      let formattedChecklist = "";
-      if (checklist) {
-        formattedChecklist = checklist.checkItems
-          .filter(item => !urlsToIds[item.name])
-          .sort((item1, item2) => item1.pos - item2.pos)
-          .map(item => `- [${item.state === "complete" ? "x" : " "}] ${item.name}`)
-          .join("\n");
-      }
+      const checklists = card.checklists;
+      // const checklists = checkLists[card.id];
+      const formattedChecklists = checklists
+        .map(checklist => {
+          const formattedItems = checklist.checkItems
+            .filter(item => !urlsToIds[item.name])
+            .sort((item1, item2) => item1.pos - item2.pos)
+            .map(item => `- [${item.state === "complete" ? "x" : " "}] ${item.name}`)
+            .join("\n");
+
+          return `${checklist.name}:\n${formattedItems}`;
+        })
+        .join("\n\n");
 
       // ATTACHMENTS
       const formattedAttachments = card.attachments
@@ -378,10 +421,11 @@ export class TrelloJsonImporter implements Importer {
       // https://linear.app/rolemodelsoftware/issue/SAY-107/eb-balustrade-offset-handrail
 
       // DESCRIPTION
-      const description = `${mdDesc}${formattedChecklist && `\n${formattedChecklist}`}${
+      const description = `${mdDesc}${formattedChecklists && `\n\n${formattedChecklists}`}${
         formattedAttachments && `\n\nAttachments:\n${formattedAttachments}`
       }${formattedMembers && `\n\nMembers:\n${formattedMembers}`}\n\n[View original card in Trello](${url})`;
-      const labels = card.labels.map(l => l.id);
+      // const labels = card.labels.map(l => l.id);
+      const labels = card.idLabels; // .map(l => l.id);
 
       // card date
       const phase2Start = new Date("2024-02-16").getTime();
@@ -402,7 +446,7 @@ export class TrelloJsonImporter implements Importer {
       // CUSTOM FIELDS
       let estimate = Estimate.NoEstimate;
       let projectId = Project.KOMBI;
-      let projectMilestoneId = Project.KOMBI;
+      let projectMilestoneId;
       card.customFieldItems.forEach(field => {
         const customField = customFields[field.idCustomField];
         const name = customField.name;
@@ -417,8 +461,8 @@ export class TrelloJsonImporter implements Importer {
         // APP
         if (name === "App") {
           const app = customField[field.idValue];
-          projectId = PROJECT_MAP[phase][app];
-          projectMilestoneId = MILESTONE_MAP[app][listName];
+          projectId = PROJECT_MAP[phase]?.[app];
+          projectMilestoneId = MILESTONE_MAP[phase]?.[app]?.[listName];
           return;
         }
       });
@@ -449,7 +493,8 @@ export class TrelloJsonImporter implements Importer {
         projectMilestoneId,
       });
 
-      const allLabels = card.labels.map(label => ({
+      const trelloLabels = data.labels.filter((label: TrelloLabel) => labels.includes(label.id));
+      const allLabels = trelloLabels.map((label: TrelloLabel) => ({
         id: label.id,
         color: mapLabelColor(label.color),
         // Trello allows labels with no name and only a color value, but we must specify a name
@@ -460,8 +505,19 @@ export class TrelloJsonImporter implements Importer {
         const { id, ...labelData } = label;
         importData.labels[id] = labelData;
       }
+
+      // const checklists = checkLists[card.id];
+      checklists.forEach(checklist => {
+        const subIssueIds = checklist.checkItems.map(item => urlsToIds[item.name]).filter(Boolean);
+        if (!importData.subIssues) {
+          return;
+        }
+
+        importData.subIssues[card.id] = subIssueIds;
+      });
     }
-    importData.subIssues = trelloCheckLists;
+
+    // importData.subIssues = trelloCheckLists;
 
     return importData;
   };
